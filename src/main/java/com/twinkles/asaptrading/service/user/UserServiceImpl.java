@@ -1,10 +1,12 @@
 package com.twinkles.asaptrading.service.user;
 
 import com.twinkles.asaptrading.dto.GenericResponse;
+import com.twinkles.asaptrading.dto.TransactionDto;
 import com.twinkles.asaptrading.dto.UserDto;
 import com.twinkles.asaptrading.dto.request.*;
 import com.twinkles.asaptrading.entity.AccountDetails;
 import com.twinkles.asaptrading.entity.Role;
+import com.twinkles.asaptrading.entity.Transaction;
 import com.twinkles.asaptrading.entity.User;
 import com.twinkles.asaptrading.enums.AccountDetailsType;
 import com.twinkles.asaptrading.exception.AsapTradingException;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -35,7 +38,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService, UserDetailsService {
-    private final TransactionRepository transactionRepository;
 
     private final UserRepository userRepository;
     private final AccountDetailsRepository accountDetailsRepository;
@@ -118,10 +120,16 @@ public class UserServiceImpl implements UserService, UserDetailsService {
 
     @Override
     public GenericResponse buyCoin(BuyCoinRequest buyCoinRequest) {
+        TransactionDto transactionDto = new TransactionDto();
         User user = userRepository.findById(Long.valueOf(buyCoinRequest.getUserId())).orElseThrow(
                 () -> new AsapTradingException("User id not found", 404)
         );
-      return transactionService.buyCoin(buyCoinRequest,user);
+       Transaction transaction = transactionService.buyCoin(buyCoinRequest,user);
+       user.getTransactionList().add(transaction);
+       userRepository.save(user);
+       BeanUtils.copyProperties(transaction,transactionDto);
+       transactionDto.setWalletAddress(buyCoinRequest.getWalletAddress());
+       return new GenericResponse(true,"Payment has been confirmed. Transaction awaiting approval from admin",transactionDto);
     }
 
     @Override
@@ -129,6 +137,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         User user = userRepository.findById(Long.valueOf(sellCoinRequest.getUserId())).orElseThrow(
                 () -> new AsapTradingException("User id not found", 404)
         );
+        TransactionDto transactionDto = new TransactionDto();
         if(user.getAccountDetailsList().isEmpty()){
             AccountDetails accountDetails = new AccountDetails();
             accountDetails.setAccountDetailsType(AccountDetailsType.PRIMARY);
@@ -137,9 +146,13 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             accountDetails.setBankName(sellCoinRequest.getBankName());
             accountDetailsRepository.save(accountDetails);
             user.getAccountDetailsList().add(accountDetails);
-            userRepository.save(user);
         }
-        return transactionService.sellCoin(sellCoinRequest, user);
+        Transaction transaction = transactionService.sellCoin(sellCoinRequest, user);
+        user.getTransactionList().add(transaction);
+        userRepository.save(user);
+        BeanUtils.copyProperties(transaction,transactionDto);
+        transactionDto.setAccountDetails(user.getAccountDetailsList().stream().toList().get(0));
+        return new GenericResponse(true,"Transaction awaiting approval from admin",transactionDto);
     }
 
 
