@@ -14,5 +14,6 @@ public class BuyCoinRequest {
     private String userId;
     private String paymentReferenceId;
     private String coinName;
+    private String walletAddress;
     private BigDecimal totalAmount;
 }

@@ -26,8 +26,7 @@ public class Transaction {
     private TransactionStatus transactionStatus;
 
     private BigDecimal amount;
-
-
+    private String coinName;
     @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "userId" , referencedColumnName = "id")

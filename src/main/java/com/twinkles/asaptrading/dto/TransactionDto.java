@@ -18,5 +18,7 @@ public class TransactionDto {
     private TransactionType transactionType;
     private TransactionStatus transactionStatus;
     private BigDecimal amount;
+    private String coinName;
     private AccountDetails accountDetails;
+    private String walletAddress;
 }

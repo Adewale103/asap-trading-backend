@@ -7,6 +7,7 @@ import com.twinkles.asaptrading.entity.AccountDetails;
 import com.twinkles.asaptrading.entity.Transaction;
 import com.twinkles.asaptrading.entity.User;
 import com.twinkles.asaptrading.enums.AccountDetailsType;
+import com.twinkles.asaptrading.enums.CoinType;
 import com.twinkles.asaptrading.enums.TransactionStatus;
 import com.twinkles.asaptrading.enums.TransactionType;
 import com.twinkles.asaptrading.exception.AsapTradingException;
@@ -49,6 +50,7 @@ public class TransactionServiceImpl implements TransactionService{
         List<TransactionDto> transactionDtoList = transactionList.stream().map(transaction -> {
             TransactionDto transactionDto  = new TransactionDto();
             BeanUtils.copyProperties(transaction,transactionDto);
+            transactionDto.setWalletAddress(getWalletAddress(transaction.getUser(),transaction.getCoinName()));
             return transactionDto;
         }).toList();
         return new GenericResponse(true,"data successfully retrieved",transactionDtoList);
@@ -63,42 +65,38 @@ public class TransactionServiceImpl implements TransactionService{
         List<TransactionDto> transactionDtoList = transactionList.stream().map(transaction -> {
             TransactionDto transactionDto  = new TransactionDto();
             BeanUtils.copyProperties(transaction,transactionDto);
+            transactionDto.setAccountDetails(transaction.getUser().getAccountDetailsList().stream().toList().get(0));
             return transactionDto;
         }).toList();
         return new GenericResponse(true,"data successfully retrieved",transactionDtoList);
     }
 
     @Override
-    public GenericResponse buyCoin(BuyCoinRequest buyCoinRequest, User user) {
+    public Transaction buyCoin(BuyCoinRequest buyCoinRequest, User user) {
         Transaction transaction  = new Transaction();
-        TransactionDto transactionDto = new TransactionDto();
-        VerifyTransactionResponse payStackResponse = confirmPayment(buyCoinRequest.getPaymentReferenceId());
-        if (payStackResponse == null || payStackResponse.getStatus().equals("false")) {
-            throw new AsapTradingException("An error occurred while verifying payment",400);
-        }
-        else if (payStackResponse.getData().getStatus().equals("success")) {
+//        VerifyTransactionResponse payStackResponse = confirmPayment(buyCoinRequest.getPaymentReferenceId());
+//        if (payStackResponse == null || payStackResponse.getStatus().equals("false")) {
+//            throw new AsapTradingException("An error occurred while verifying payment",400);
+//        }
+//        else if (payStackResponse.getData().getStatus().equals("success")) {
             transaction.setTransactionType(TransactionType.BUY);
             transaction.setTransactionStatus(TransactionStatus.PENDING);
             transaction.setAmount(buyCoinRequest.getTotalAmount());
+            transaction.setCoinName(buyCoinRequest.getCoinName());
             transaction.setUser(user);
-            transactionRepository.save(transaction);
-            BeanUtils.copyProperties(transaction,transactionDto);
-        }
-        return new GenericResponse(true,"Payment has been confirmed. Transaction awaiting approval from admin",transactionDto);
+//        }
+        return transactionRepository.save(transaction);
     }
 
     @Override
-    public GenericResponse sellCoin(SellCoinRequest sellCoinRequest, User user) {
+    public Transaction sellCoin(SellCoinRequest sellCoinRequest, User user) {
      Transaction transaction  = new Transaction();
-     TransactionDto transactionDto = new TransactionDto();
      transaction.setTransactionType(TransactionType.SELL);
      transaction.setTransactionStatus(TransactionStatus.PENDING);
      transaction.setUser(user);
+     transaction.setCoinName(sellCoinRequest.getCoinName());
      transaction.setAmount(sellCoinRequest.getTotalAmount());
-     transactionRepository.save(transaction);
-     BeanUtils.copyProperties(transaction,transactionDto);
-     transactionDto.setAccountDetails(user.getAccountDetailsList().stream().toList().get(0));
-     return new GenericResponse(true,"Transaction awaiting approval from admin",transactionDto);
+     return transactionRepository.save(transaction);
     }
 
 
@@ -113,5 +111,22 @@ public class TransactionServiceImpl implements TransactionService{
         HttpEntity<WalletTransactionRequest> request = new HttpEntity<>(null, headers);
         ResponseEntity<VerifyTransactionResponse> response = restTemplate.exchange(url, HttpMethod.GET, request, VerifyTransactionResponse.class);
         return response.getBody();
+    }
+
+    private String getWalletAddress(User user, String coinName){
+        if(CoinType.valueOf(coinName).equals(CoinType.BITCOIN)){
+            return user.getBitcoinWalletAddress();
+        }else if(CoinType.valueOf(coinName).equals(CoinType.ETHEREUM)){
+            return user.getEthereumWalletAddress();
+        } else if(CoinType.valueOf(coinName).equals(CoinType.BNBMEMO)){
+            return user.getBnbMemoWalletAddress();
+        } else if(CoinType.valueOf(coinName).equals(CoinType.BNBBEACONCHAIN)){
+            return user.getBnbBeaconChainWalletAddress();
+        } else if(CoinType.valueOf(coinName).equals(CoinType.BNBSMARTCHAIN)){
+            return user.getBnbSmartChainWalletAddress();
+        } else if (CoinType.valueOf(coinName).equals(CoinType.USDT)){
+            return user.getUsdtWalletAddress();
+        }
+        return "NO WALLET ADDRESS AVAILABLE.";
     }
 }
