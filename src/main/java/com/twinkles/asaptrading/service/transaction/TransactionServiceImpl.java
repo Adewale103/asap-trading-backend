@@ -44,7 +44,7 @@ public class TransactionServiceImpl implements TransactionService{
     @Override
     public GenericResponse getPendingBuyTransactions() {
         List<Transaction> transactionList = transactionRepository.getTransactionsByTransactionStatusAndTransactionType(TransactionStatus.PENDING, TransactionType.BUY);
-        if(transactionList == null || transactionList.size() < 1){
+        if(transactionList == null || transactionList.isEmpty()){
             throw new AsapTradingException("transaction list is empty",400);
         }
         List<TransactionDto> transactionDtoList = transactionList.stream().map(transaction -> {
